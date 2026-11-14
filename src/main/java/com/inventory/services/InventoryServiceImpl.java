@@ -1,18 +1,17 @@
 package com.inventory.services;
 
-import com.inventory.clients.ProductClient;
 import com.inventory.exceptions.InventoryException;
 import com.inventory.models.Inventory;
 import com.inventory.models.MovimientoInventario;
 import com.inventory.models.dtos.*;
 import com.inventory.repositories.InventoryRepository;
-import feign.FeignException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -20,8 +19,6 @@ import java.util.List;
 public class InventoryServiceImpl implements InventoryService {
     @Autowired
     private InventoryRepository inventoryRepository;
-    @Autowired
-    private ProductClient productClient;
 
     @Transactional(readOnly = true)
     @Override
@@ -45,6 +42,32 @@ public class InventoryServiceImpl implements InventoryService {
                 return movDTO;
             }).toList();
             dto.setMovimientosDTO(movimientoDTO);
+            return dto;
+        }).toList();
+    }
+
+
+    @Transactional(readOnly = true)
+    @Override
+    public List<InventoryDetalleDTO> findAll() {
+        log.info("Listando todos los inventarios");
+        return this.inventoryRepository.findAll().stream().map(inventory -> {
+            InventoryDetalleDTO dto = new InventoryDetalleDTO();
+            dto.setId(inventory.getId());
+            dto.setProductId(inventory.getProductId());
+            dto.setStockDisponible(inventory.getStockDisponible());
+            dto.setStockMinimo(inventory.getStockMinimo());
+            dto.setStockReservado(inventory.getStockReservado());
+            dto.setUbicacion(inventory.getUbicacion());
+            dto.setMovimientosDTO(inventory.getMovimientos().stream().map(mov -> {
+                MovimientoDetalleDTO m = new MovimientoDetalleDTO();
+                m.setId(mov.getId());
+                m.setProductId(mov.getProductId());
+                m.setTipo(mov.getTipo());
+                m.setCantidad(mov.getCantidad());
+                m.setFecha(mov.getFecha());
+                return m;
+            }).toList());
             return dto;
         }).toList();
     }
@@ -78,14 +101,7 @@ public class InventoryServiceImpl implements InventoryService {
     @Transactional
     @Override
     public InventoryDetalleDTO save(InventorySaveDTO inventorySaveDTO) {
-        ProductDTO product;
-        try {
-            product = productClient.getProductById(inventorySaveDTO.getProductId());
-        } catch (FeignException e) {
-            log.error("Error al consultar msvc-product para el producto con ID " +inventorySaveDTO.getProductId());
-            throw new InventoryException("El producto con ID " + inventorySaveDTO.getProductId() + " no existe o el servicio no está disponible. No se puede crear el inventario.");
-        }
-
+        // Sin msvc-product en este repo: productId se trata como referencia logica (no se valida su existencia)
         log.info("Creando nuevo inventario para producto con id "+ inventorySaveDTO.getProductId());
         Inventory inventory = new Inventory();
         inventory.setProductId(inventorySaveDTO.getProductId());
@@ -96,7 +112,9 @@ public class InventoryServiceImpl implements InventoryService {
 
         inventory.setUbicacion(inventorySaveDTO.getUbicacion());
 
-        List<MovimientoInventario> movimientoInventarios = inventorySaveDTO.getMovimientosDTO().stream().map(movDTO ->{
+        List<MovimientoDetalleDTO> movimientosEntrada = inventorySaveDTO.getMovimientosDTO() == null
+                ? List.of() : inventorySaveDTO.getMovimientosDTO();
+        List<MovimientoInventario> movimientoInventarios = movimientosEntrada.stream().map(movDTO ->{
             MovimientoInventario movimientoInventario = new MovimientoInventario();
             movimientoInventario.setProductId(movDTO.getProductId());
             movimientoInventario.setTipo(movDTO.getTipo());
@@ -235,5 +253,78 @@ public class InventoryServiceImpl implements InventoryService {
 
         return this.findByID(inventorySave.getId());
 
+    }
+
+    @Transactional
+    @Override
+    public InventoryDetalleDTO registrarMovimiento(Long id, InventoryMovimientoDTO movimientoDTO) {
+        String tipo = movimientoDTO.getTipo().trim().toUpperCase();
+        Long cantidad = movimientoDTO.getCantidad();
+        if (!tipo.equals("ENTRADA") && !tipo.equals("SALIDA")) {
+            throw new InventoryException("El tipo de movimiento debe ser ENTRADA o SALIDA");
+        }
+
+        Inventory inventory = this.inventoryRepository.findById(id).orElseThrow(
+                () -> new InventoryException("Inventario con ID " + id + " no encontrado"));
+
+        if (tipo.equals("SALIDA")) {
+            long disponibleAntes = inventory.getStockDisponible();
+            // Una sola sentencia: descuenta solo si alcanza, sin ventana para la venta sin stock
+            if (this.inventoryRepository.descontarSiHayStock(id, cantidad) == 0) {
+                throw new InventoryException("Stock insuficiente, Solicitado:" + cantidad + ", Disponible:" + disponibleAntes);
+            }
+            // clearAutomatically dejó la entidad desactualizada: se vuelve a cargar
+            inventory = this.inventoryRepository.findById(id).orElseThrow(
+                    () -> new InventoryException("Inventario con ID " + id + " no encontrado"));
+        } else {
+            inventory.setStockDisponible(inventory.getStockDisponible() + cantidad);
+        }
+
+        agregarMovimiento(inventory, tipo, cantidad);
+        this.inventoryRepository.save(inventory);
+        log.info("Movimiento " + tipo + " de " + cantidad + " registrado en el inventario " + id);
+        return this.findByID(id);
+    }
+
+    @Transactional
+    @Override
+    public InventoryDetalleDTO actualizarStockMinimo(Long id, InventoryMinimoDTO minimoDTO) {
+        Inventory inventory = this.inventoryRepository.findById(id).orElseThrow(
+                () -> new InventoryException("Inventario con ID " + id + " no encontrado"));
+        inventory.setStockMinimo(minimoDTO.getStockMinimo());
+        this.inventoryRepository.save(inventory);
+        log.info("Stock mínimo del inventario " + id + " actualizado");
+        return this.findByID(id);
+    }
+
+    // Reposición masiva: lleva cada inventario con stock bajo hasta el doble de su mínimo,
+    // registrando una ENTRADA por cada uno. Todo ocurre en una sola transacción.
+    @Transactional
+    @Override
+    public List<InventoryDetalleDTO> reponerStockBajo() {
+        List<Inventory> repuestos = new ArrayList<>();
+        for (Inventory inventory : this.inventoryRepository.findAll()) {
+            if (inventory.getStockDisponible() <= inventory.getStockMinimo()) {
+                long cantidad = (inventory.getStockMinimo() * 2) - inventory.getStockDisponible();
+                if (cantidad > 0) {
+                    inventory.setStockDisponible(inventory.getStockDisponible() + cantidad);
+                    agregarMovimiento(inventory, "ENTRADA", cantidad);
+                    repuestos.add(inventory);
+                }
+            }
+        }
+        this.inventoryRepository.saveAll(repuestos);
+        log.info("Reposición masiva: " + repuestos.size() + " inventarios repuestos");
+        return repuestos.stream().map(inv -> this.findByID(inv.getId())).toList();
+    }
+
+    private void agregarMovimiento(Inventory inventory, String tipo, Long cantidad) {
+        MovimientoInventario movimiento = new MovimientoInventario();
+        movimiento.setProductId(inventory.getProductId());
+        movimiento.setTipo(tipo);
+        movimiento.setCantidad(cantidad);
+        movimiento.setFecha(LocalDateTime.now());
+        movimiento.setInventario(inventory);
+        inventory.getMovimientos().add(movimiento);
     }
 }

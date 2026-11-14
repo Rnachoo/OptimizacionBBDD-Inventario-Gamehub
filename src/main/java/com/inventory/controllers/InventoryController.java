@@ -3,6 +3,8 @@ package com.inventory.controllers;
 import com.inventory.assemblers.InventoryModelAssembler;
 import com.inventory.models.dtos.InventoryCantidadDTO;
 import com.inventory.models.dtos.InventoryDetalleDTO;
+import com.inventory.models.dtos.InventoryMinimoDTO;
+import com.inventory.models.dtos.InventoryMovimientoDTO;
 import com.inventory.models.dtos.InventorySaveDTO;
 import com.inventory.models.dtos.InventoryUpdateCantidadDisponibleDTO;
 import com.inventory.services.InventoryService;
@@ -42,7 +44,7 @@ public class InventoryController {
                     responseCode = "200",
                     description = "Operación exitosa",
                     content = @Content(mediaType = "application/json",
-                    schema = @Schema (implementation = InventoryDetalleDTO.class)))
+                            schema = @Schema (implementation = InventoryDetalleDTO.class)))
     })
     public ResponseEntity<CollectionModel<EntityModel<InventoryDetalleDTO>>> findAllByProduct(
             @Parameter(description = "ID del producto para búscar un Inventario", required = true, example = "1")
@@ -55,6 +57,18 @@ public class InventoryController {
         CollectionModel<EntityModel<InventoryDetalleDTO>> collectionModel = CollectionModel.of(entityModels);
         return ResponseEntity.status(HttpStatus.OK).body(collectionModel);
     }
+
+
+    @GetMapping
+    @Operation(summary = "Listar todos los inventarios", description = "Devuelve todos los registros de inventario")
+    public ResponseEntity<CollectionModel<EntityModel<InventoryDetalleDTO>>> findAll() {
+        List<EntityModel<InventoryDetalleDTO>> entityModels = this.inventoryService.findAll()
+                .stream()
+                .map(inventoryModelAssembler::toModel)
+                .toList();
+        return ResponseEntity.ok(CollectionModel.of(entityModels));
+    }
+
 
     //Buscar inventario por el ID
     @GetMapping("/{id}")
@@ -123,7 +137,7 @@ public class InventoryController {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Reserva exitosa",
                     content = @Content(mediaType = "application/json",
-                    schema = @Schema(implementation = InventoryDetalleDTO.class))),
+                            schema = @Schema(implementation = InventoryDetalleDTO.class))),
             @ApiResponse(responseCode = "400", description = "Stock insuficiente para realizar la reserva"),
             @ApiResponse(responseCode = "404", description = "Inventario no encontrado para el producto")
     })
@@ -143,7 +157,7 @@ public class InventoryController {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Stock liberado con éxito",
                     content = @Content(mediaType = "application/json",
-                    schema = @Schema(implementation = InventoryDetalleDTO.class))),
+                            schema = @Schema(implementation = InventoryDetalleDTO.class))),
             @ApiResponse(responseCode = "404", description = "Inventario no encontrado para el producto")
     })
     public ResponseEntity<EntityModel<InventoryDetalleDTO>> liberarStock(
@@ -161,7 +175,7 @@ public class InventoryController {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Venta confirmada exitosamente",
                     content = @Content(mediaType = "application/json",
-                    schema = @Schema(implementation = InventoryDetalleDTO.class))),
+                            schema = @Schema(implementation = InventoryDetalleDTO.class))),
             @ApiResponse(responseCode = "400", description = "Se intentan confirmar más productos de los que hay reservados"),
             @ApiResponse(responseCode = "404", description = "Inventario no encontrado para el producto")
     })
@@ -174,5 +188,41 @@ public class InventoryController {
         return ResponseEntity.status(HttpStatus.OK).body(entityModel);
     }
 
+    //Registrar una entrada o salida de stock
+    @PostMapping("/{id}/movimientos")
+    @Operation(summary = "Registrar movimiento de stock", description = "Registra una ENTRADA o SALIDA. La salida falla con 400 si el stock disponible no alcanza")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Movimiento registrado"),
+            @ApiResponse(responseCode = "400", description = "Stock insuficiente o datos inválidos"),
+            @ApiResponse(responseCode = "404", description = "Inventario no encontrado")
+    })
+    public ResponseEntity<EntityModel<InventoryDetalleDTO>> registrarMovimiento(
+            @Parameter(description = "ID del inventario", required = true, example = "1")
+            @PathVariable Long id, @Valid @RequestBody InventoryMovimientoDTO movimientoDTO
+    ){
+        InventoryDetalleDTO response = inventoryService.registrarMovimiento(id, movimientoDTO);
+        return ResponseEntity.status(HttpStatus.CREATED).body(inventoryModelAssembler.toModel(response));
+    }
 
+    //Editar el stock mínimo
+    @PatchMapping("/{id}/minimo")
+    @Operation(summary = "Actualizar stock mínimo", description = "Modifica solo el stock mínimo de un inventario")
+    public ResponseEntity<EntityModel<InventoryDetalleDTO>> actualizarMinimo(
+            @Parameter(description = "ID del inventario", required = true, example = "1")
+            @PathVariable Long id, @Valid @RequestBody InventoryMinimoDTO minimoDTO
+    ){
+        InventoryDetalleDTO response = inventoryService.actualizarStockMinimo(id, minimoDTO);
+        return ResponseEntity.ok(inventoryModelAssembler.toModel(response));
+    }
+
+    //Reposición masiva
+    @PostMapping("/reposicion")
+    @Operation(summary = "Reposición masiva", description = "Lleva cada inventario con stock bajo hasta el doble de su mínimo y registra una ENTRADA por cada uno")
+    public ResponseEntity<CollectionModel<EntityModel<InventoryDetalleDTO>>> reponerStockBajo(){
+        List<EntityModel<InventoryDetalleDTO>> repuestos = inventoryService.reponerStockBajo()
+                .stream()
+                .map(inventoryModelAssembler::toModel)
+                .toList();
+        return ResponseEntity.ok(CollectionModel.of(repuestos));
+    }
 }

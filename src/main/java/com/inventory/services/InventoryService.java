@@ -2,6 +2,8 @@ package com.inventory.services;
 
 import com.inventory.models.dtos.InventoryCantidadDTO;
 import com.inventory.models.dtos.InventoryDetalleDTO;
+import com.inventory.models.dtos.InventoryMinimoDTO;
+import com.inventory.models.dtos.InventoryMovimientoDTO;
 import com.inventory.models.dtos.InventorySaveDTO;
 import com.inventory.models.dtos.InventoryUpdateCantidadDisponibleDTO;
 
@@ -16,5 +18,9 @@ public interface InventoryService {
     InventoryDetalleDTO reservarStock(Long productId, InventoryCantidadDTO cantidadDTO);
     InventoryDetalleDTO liberarStock(Long productId, InventoryCantidadDTO cantidadDTO);
     InventoryDetalleDTO confirmarVenta(Long productId, InventoryCantidadDTO cantidadDTO);
+    List<InventoryDetalleDTO> findAll();
+    InventoryDetalleDTO registrarMovimiento(Long id, InventoryMovimientoDTO movimientoDTO);
+    InventoryDetalleDTO actualizarStockMinimo(Long id, InventoryMinimoDTO minimoDTO);
+    List<InventoryDetalleDTO> reponerStockBajo();
 
 }
