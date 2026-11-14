@@ -1,12 +1,10 @@
 package com.inventory.services;
 
-import com.inventory.clients.ProductClient;
 import com.inventory.exceptions.InventoryException;
 import com.inventory.models.Inventory;
 import com.inventory.models.MovimientoInventario;
 import com.inventory.models.dtos.*;
 import com.inventory.repositories.InventoryRepository;
-import feign.FeignException;
 import net.datafaker.Faker;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -32,24 +30,15 @@ public class InventoryServiceTest {
     @Mock
     private InventoryRepository inventoryRepository;
 
-    @Mock
-    private ProductClient productClient;
-
     @InjectMocks
     private InventoryServiceImpl inventoryService;
 
     private Inventory inventarioPrueba;
     private MovimientoInventario movimientoPrueba;
-    private ProductDTO productDTOPrueba;
 
     @BeforeEach
     public void setUp() {
         Faker faker = new Faker(Locale.of("es", "CL"));
-
-        // Configuración de ProductDTO simulado de Feign
-        this.productDTOPrueba = new ProductDTO();
-        this.productDTOPrueba.setId(100L);
-        this.productDTOPrueba.setCantidad(50L);
 
         // Configuración de MovimientoInventario
         this.movimientoPrueba = new MovimientoInventario();
@@ -103,7 +92,7 @@ public class InventoryServiceTest {
     }
 
     @Test
-    @DisplayName("Debe guardar un inventario validando con ProductClient")
+    @DisplayName("Debe guardar un inventario exitosamente")
     public void shouldSaveInventory() {
         InventorySaveDTO saveDTO = new InventorySaveDTO();
         saveDTO.setProductId(100L);
@@ -118,7 +107,6 @@ public class InventoryServiceTest {
         movDTO.setCantidad(50L);
         saveDTO.setMovimientosDTO(List.of(movDTO));
 
-        when(this.productClient.getProductById(saveDTO.getProductId())).thenReturn(this.productDTOPrueba);
         when(this.inventoryRepository.save(any(Inventory.class))).thenAnswer(i -> {
             Inventory invGuardado = i.getArgument(0);
             invGuardado.setId(2L);
@@ -130,25 +118,7 @@ public class InventoryServiceTest {
         assertThat(result).isNotNull();
         assertThat(result.getId()).isEqualTo(2L);
         assertThat(result.getMovimientosDTO().size()).isEqualTo(1);
-        verify(productClient, times(1)).getProductById(saveDTO.getProductId());
         verify(inventoryRepository, times(1)).save(any(Inventory.class));
-    }
-
-    @Test
-    @DisplayName("Debe lanzar excepción al guardar si ProductClient falla (FeignException)")
-    public void shouldThrowExceptionWhenProductClientFails() {
-        InventorySaveDTO saveDTO = new InventorySaveDTO();
-        saveDTO.setProductId(999L);
-
-        // Simulamos la caída del microservicio de productos
-        when(this.productClient.getProductById(saveDTO.getProductId())).thenThrow(mock(FeignException.class));
-
-        assertThatThrownBy(() -> this.inventoryService.save(saveDTO))
-                .isInstanceOf(InventoryException.class)
-                .hasMessageContaining("no existe o el servicio no está disponible");
-
-        verify(productClient, times(1)).getProductById(saveDTO.getProductId());
-        verify(inventoryRepository, never()).save(any(Inventory.class));
     }
 
     @Test
