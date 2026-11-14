@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @ToString
 @NoArgsConstructor
 public class MovimientoDetalleDTO {
-    private Long id;
+    private String id;
     private Long productId;
     private String tipo;
     private Long cantidad;
