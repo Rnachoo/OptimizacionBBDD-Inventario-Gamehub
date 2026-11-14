@@ -87,10 +87,12 @@ public class InventoryServiceImpl implements InventoryService {
         if (dto.getStockDisponible() < 0) {
             throw new InventoryException("El stock disponible no puede quedar en negativo.");
         }
-        Inventory inventory = buscar(id);
-        inventory.setStockDisponible(dto.getStockDisponible());
-        inventory.setFechaUltimaActualizacion(LocalDateTime.now());
-        this.inventoryRepository.save(inventory);
+        // Atómico: solo modifica stockDisponible en una operación, sin leer y guardar el documento completo
+        Inventory inventory = modificarAtomico(Criteria.where("_id").is(id),
+                new Update().set("stockDisponible", dto.getStockDisponible()));
+        if (inventory == null) {
+            throw new InventoryException("Inventario con ID " + id + " no encontrado");
+        }
         return findByID(id);
     }
 
@@ -145,7 +147,6 @@ public class InventoryServiceImpl implements InventoryService {
         return findByID(inventory.getId());
     }
 
-    // Equivalente al FOR UPDATE de Oracle: el filtro y el $inc ocurren en una sola operación atómica
     @Transactional
     @Override
     public InventoryDetalleDTO registrarMovimiento(String id, InventoryMovimientoDTO movimientoDTO) {
@@ -215,6 +216,7 @@ public class InventoryServiceImpl implements InventoryService {
         return ids.stream().map(this::findByID).toList();
     }
 
+    // Equivalente al FOR UPDATE de Oracle: el filtro y el $inc ocurren en una sola operación atómica
     private Inventory modificarAtomico(Criteria filtro, Update update) {
         update.set("fechaUltimaActualizacion", LocalDateTime.now());
         return this.mongoTemplate.findAndModify(new Query(filtro), update,

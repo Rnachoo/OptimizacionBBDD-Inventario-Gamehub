@@ -172,6 +172,32 @@ public class InventoryServiceTest {
     }
 
     @Test
+    @DisplayName("Debe actualizar el stock disponible de forma atómica")
+    public void shouldUpdateCantidadDisponibleAtomically() {
+        InventoryUpdateCantidadDisponibleDTO dto = new InventoryUpdateCantidadDisponibleDTO();
+        dto.setStockDisponible(80L);
+        cuandoModificaDevuelve(copiaCon(80, 10));
+        cuandoBuscaPorIdDevuelve(copiaCon(80, 10));
+
+        InventoryDetalleDTO resultado = inventoryService.updateCantidadDisponible(ID, dto);
+
+        assertThat(resultado.getStockDisponible()).isEqualTo(80L);
+        verify(inventoryRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Debe lanzar excepción si el inventario a actualizar no existe")
+    public void shouldThrowWhenUpdateNotFound() {
+        InventoryUpdateCantidadDisponibleDTO dto = new InventoryUpdateCantidadDisponibleDTO();
+        dto.setStockDisponible(80L);
+        cuandoModificaDevuelve(null);
+
+        assertThatThrownBy(() -> inventoryService.updateCantidadDisponible(ID, dto))
+                .isInstanceOf(InventoryException.class)
+                .hasMessageContaining("no encontrado");
+    }
+
+    @Test
     @DisplayName("Debe eliminar el inventario y su historial si no tiene stock reservado")
     public void shouldDeleteById() {
         when(inventoryRepository.findById(ID)).thenReturn(Optional.of(copiaCon(50, 0)));
