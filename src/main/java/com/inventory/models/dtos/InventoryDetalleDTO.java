@@ -11,7 +11,7 @@ import java.util.List;
 @ToString
 @NoArgsConstructor
 public class InventoryDetalleDTO {
-    private Long id;
+    private String id;
     private Long productId;
     private Long stockDisponible;
     private Long stockReservado;

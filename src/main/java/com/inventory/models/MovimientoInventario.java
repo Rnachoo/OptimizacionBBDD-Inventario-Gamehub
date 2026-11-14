@@ -1,18 +1,18 @@
 package com.inventory.models;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "movimientos_inventario")
+// Referenciado (no embebido): el historial crece sin límite y un documento tiene tope de 16 MB
+@Document(collection = "movimientos_inv")
+@CompoundIndex(name = "inventario_fecha", def = "{'inventoryId': 1, 'fecha': -1}")
 @Getter
 @Setter
 @ToString
@@ -20,28 +20,11 @@ import java.time.LocalDateTime;
 public class MovimientoInventario {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private String id;
 
-    @NotNull(message = "El ID del producto es obligatorio")
-    @Column(nullable = false)
+    private String inventoryId;
     private Long productId;
-
-    @NotBlank(message = "El tipo de movimiento es obligatorio")
-    @Column(nullable = false)
     private String tipo;
-
-    @NotNull(message = "La cantidad es obligatoria")
-    @Column(nullable = false)
     private Long cantidad;
-
-    @NotNull(message = "La fecha es obligatoria")
-    @Column(nullable = false)
     private LocalDateTime fecha;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "inventario_id")
-    @JsonIgnore
-    @ToString.Exclude
-    private Inventory inventario;
 }

@@ -79,7 +79,7 @@ public class InventoryController {
     })
     public ResponseEntity<EntityModel<InventoryDetalleDTO>> findById(
             @Parameter(description = "ID del inventario", required = true, example = "1")
-            @PathVariable Long id
+            @PathVariable String id
     ) {
         EntityModel<InventoryDetalleDTO> entityModel = inventoryModelAssembler.toModel(inventoryService.findByID(id));
         return ResponseEntity.status(HttpStatus.OK).body(entityModel);
@@ -107,7 +107,7 @@ public class InventoryController {
     })
     public ResponseEntity<EntityModel<InventoryDetalleDTO>> updateCantidadDisponible  (
             @Parameter(description = "ID del inventario", required = true, example = "1")
-            @PathVariable Long id, @Valid @RequestBody InventoryUpdateCantidadDisponibleDTO cantidadDisponibleDTO
+            @PathVariable String id, @Valid @RequestBody InventoryUpdateCantidadDisponibleDTO cantidadDisponibleDTO
     ){
         InventoryDetalleDTO inventoryUpdate = inventoryService.updateCantidadDisponible(id, cantidadDisponibleDTO);
         EntityModel<InventoryDetalleDTO> entityModel = this.inventoryModelAssembler.toModel(inventoryUpdate);
@@ -124,7 +124,7 @@ public class InventoryController {
     })
     public ResponseEntity<Void> deleteById(
             @Parameter(description = "ID del inventario a eliminar", required = true, example = "1")
-            @PathVariable Long id
+            @PathVariable String id
     ){
 
         this.inventoryService.deleteById(id);
@@ -198,7 +198,7 @@ public class InventoryController {
     })
     public ResponseEntity<EntityModel<InventoryDetalleDTO>> registrarMovimiento(
             @Parameter(description = "ID del inventario", required = true, example = "1")
-            @PathVariable Long id, @Valid @RequestBody InventoryMovimientoDTO movimientoDTO
+            @PathVariable String id, @Valid @RequestBody InventoryMovimientoDTO movimientoDTO
     ){
         InventoryDetalleDTO response = inventoryService.registrarMovimiento(id, movimientoDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(inventoryModelAssembler.toModel(response));
@@ -209,7 +209,7 @@ public class InventoryController {
     @Operation(summary = "Actualizar stock mínimo", description = "Modifica solo el stock mínimo de un inventario")
     public ResponseEntity<EntityModel<InventoryDetalleDTO>> actualizarMinimo(
             @Parameter(description = "ID del inventario", required = true, example = "1")
-            @PathVariable Long id, @Valid @RequestBody InventoryMinimoDTO minimoDTO
+            @PathVariable String id, @Valid @RequestBody InventoryMinimoDTO minimoDTO
     ){
         InventoryDetalleDTO response = inventoryService.actualizarStockMinimo(id, minimoDTO);
         return ResponseEntity.ok(inventoryModelAssembler.toModel(response));
