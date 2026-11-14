@@ -1,0 +1,18 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Space+Grotesk:wght@600;700&display=swap');
+
+
+/*Colores principales*/
+:root {
+    --fondo: #171A21;
+    --superficie: #1B2838;
+    --color-primario: #66C0F4;
+    --color-acento: #ACD550;
+    --color-texto: #C7D5E0;
+    --color-error: #FF6B6B;
+    --color-grafito: #12181F;
+    --radio-borde: 8px;
+
+    --fuente-titulos: 'Space Grotesk', sans-serif;
+    --fuente-texto: 'Inter', sans-serif;
+}
+

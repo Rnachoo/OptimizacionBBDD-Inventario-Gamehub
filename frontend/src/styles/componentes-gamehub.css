@@ -1,0 +1,38 @@
+/* Reglas del proyecto GameHub que usa la vista de inventario.
+   Origen: catalogo.css (.ruta-navegacion), mis-ordenes.css (.estado-*, .sin-ordenes)
+   y crear-cuenta.css (.campo-formulario). */
+
+.ruta-navegacion {
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.campo-formulario {
+  margin-bottom: 1.25rem;
+}
+
+.estado-orden {
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05rem;
+}
+
+.estado-entregado {
+  background: rgba(172, 213, 80, 0.15);
+  color: var(--color-acento);
+  border: 1px solid var(--color-acento);
+}
+
+.sin-ordenes {
+  text-align: center;
+  padding: 4rem 1rem;
+  background: var(--superficie);
+  border-radius: var(--radio-borde);
+}
+
+.sin-ordenes p {
+  margin-bottom: 1.5rem;
+}
