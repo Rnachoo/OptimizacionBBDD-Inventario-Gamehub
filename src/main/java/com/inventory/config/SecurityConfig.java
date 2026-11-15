@@ -21,6 +21,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
 
 @Configuration
@@ -28,6 +29,11 @@ public class SecurityConfig {
 
     @Value("${jwt.secret:EstaEsUnaClaveSecretaSuperSeguraYLargaDeAlMenos32Caracteres}")
     private String secret;
+
+    // Origenes permitidos por CORS, separados por coma. Por defecto solo local.
+    // En el despliegue se define con la variable de entorno CORS_ALLOWED_ORIGINS.
+    @Value("${cors.allowed-origins:http://localhost:5173,http://localhost:3000}")
+    private String[] allowedOrigins;
 
     @Bean
     public JwtDecoder jwtDecoder() {
@@ -87,11 +93,11 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // CORS: permite que el frontend de React (Vite en 5173, u otro en 3000) llame al backend.
+    // CORS: permite que el frontend (Vite local, u otro origen configurado) llame al backend.
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000"));
+        config.setAllowedOrigins(Arrays.asList(allowedOrigins));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
